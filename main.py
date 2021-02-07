@@ -75,8 +75,11 @@ full_mask = np.sum(np.full((480, 640), 255))
 motorR = motor(40, 38)
 motorL = motor(35, 37)
 robot = robot(motorR, motorL)
-distance_pid = pid(1.5, 0.0, 0.1)
-distance_pid.set_target(25)
+distance_pid = pid(2.5, 0.0, 0.1)
+distance_pid.set_target(55)
+
+rotation_pid = pid(0.10, 0.0, 0.0)
+rotation_pid.set_target(240)
 
 motorR.start();
 motorL.start();
@@ -86,7 +89,7 @@ while(True):
 	
 	#frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE) #not so imortant
 
-	img_hsv=cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+	img_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
 	lower = np.array([165,25,0])
 	upper = np.array([179,255,255])
@@ -97,14 +100,17 @@ while(True):
 	
 	# Erosion and dilation with cv2 to remove most of the noise:
 	kernel = np.ones((5,5),np.uint8)
-	erosion = cv2.erode(mask, kernel, iterations = 1)
+	erosion = cv2.erode(mask, kernel, iterations = 2)
 	
 	# kernel_3 = np.ones((5,5),np.uint8)
 	# dilation = cv2.dilate(img_third,kernel_3,iterations = 1)
 
-	closeness_coefisient = np.sum(mask) / full_mask #/ np.sum(np.full(mask.shape, 255))
+	closeness_coefisient = (np.sum(mask) / full_mask)**0.5 #/ np.sum(np.full(mask.shape, 255))
 	
-	if (closeness_coefisient > 0.10): #magick number
+	# closeness_coefisient = closeness_coefisient if closeness_coefisient > 0.02 else 0
+	# print(closeness_coefisient**0.5)
+	
+	if (closeness_coefisient > 0.15): #magick number
 		# doCUmEnTatiOn: https://en.wikipedia.org/wiki/Image_moment
 		# https://docs.opencv.org/2.4/modules/imgproc/doc/structural_analysis_and_shape_descriptors.html#moments
 		moments = cv2.moments(mask) 
@@ -120,12 +126,23 @@ while(True):
 		# _________________________
 		# PID_SPACE
 		
+		
 		distance_speed_correction = distance_pid.cycle(closeness_coefisient * 100)
 		
-		print(distance_speed_correction)
+		speedR = distance_speed_correction
+		speedL = distance_speed_correction
 		
-		motorR.run(distance_speed_correction)
-		motorL.run(distance_speed_correction)
+		
+		rotation_speed_correction = rotation_pid.cycle(centroid_y)
+		
+		speedR -= rotation_speed_correction
+		speedL += rotation_speed_correction
+		
+		
+		print(rotation_speed_correction)
+		
+		motorR.run(speedR)
+		motorL.run(speedL)
 		
 		
 		# _________________________
